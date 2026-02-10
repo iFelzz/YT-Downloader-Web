@@ -206,4 +206,4 @@ app.post('/download', async (req, res) => {
 // Remove the static file serving endpoint since we're not storing files anymore
 // app.use('/files', express.static(path.join(__dirname, 'downloads')));
 
-app.listen(3000, () => console.log('🚀 Server running at http://localhost:3000'));
+app.listen(3000, () => console.log('🚀 Re-Watch server running at http://localhost:3000'));

@@ -1,8 +1,10 @@
-# YouTube HD Downloader 🎬
+# Re-Watch 🎬
+
+**Download YouTube videos to watch again, anytime.**
 
 A modern, web-based YouTube video downloader with customizable resolution selection. Built with Node.js and Express, featuring a beautiful glassmorphism UI design.
 
-![YouTube HD Downloader](https://img.shields.io/badge/YouTube-Downloader-red?style=for-the-badge&logo=youtube)
+![Re-Watch](https://img.shields.io/badge/Re--Watch-YouTube%20Downloader-red?style=for-the-badge&logo=youtube)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?style=for-the-badge&logo=node.js)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 
@@ -107,7 +109,7 @@ sudo yum install ffmpeg  # CentOS/RHEL
 ## 📁 Project Structure
 
 ```
-YT-Downloader-Web/
+Re-Watch/
 ├── public/
 │   └── index.html          # Frontend UI
 ├── temp/                   # Temporary processing files (auto-cleanup)

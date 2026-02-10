@@ -1,7 +1,7 @@
 {
-  "name": "yt-downloader-web",
+  "name": "re-watch",
   "version": "1.0.0",
-  "description": "",
+  "description": "Re-Watch - Download YouTube videos to watch again, anytime. A modern web-based downloader with customizable quality selection.",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",

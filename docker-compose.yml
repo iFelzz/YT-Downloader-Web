@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  yt-web:
+  re-watch:
     build: .
-    container_name: yt-downloader-web
+    container_name: re-watch
     restart: unless-stopped
     ports:
       # Format: "Port_Luar : Port_Dalem_Aplikasi"
