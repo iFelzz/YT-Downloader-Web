@@ -398,11 +398,32 @@
                     body: JSON.stringify({ url, resolution })
                 });
 
-                const data = await response.json();
-                
-                if (data.success) {
-                    showStatus(`✅ Download complete! <a href="${data.downloadUrl}" download="${data.filename}">CLICK HERE TO SAVE</a>`, 'success');
+                if (response.ok) {
+                    // Get filename from Content-Disposition header
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'video.mp4';
+                    
+                    if (contentDisposition) {
+                        const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?;?/);
+                        if (filenameMatch && filenameMatch[1]) {
+                            filename = decodeURIComponent(filenameMatch[1]);
+                        }
+                    }
+
+                    // Convert response to blob and trigger download
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(downloadUrl);
+
+                    showStatus('✅ Download complete! Check your Downloads folder.', 'success');
                 } else {
+                    const data = await response.json();
                     showStatus(`Error: ${data.error}`, 'error');
                 }
             } catch (error) {

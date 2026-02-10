@@ -120,6 +120,10 @@ app.post('/download', async (req, res) => {
     const { url, resolution } = req.body;
     if (!url) return res.status(400).json({ error: 'URL is required!' });
 
+    // Generate unique temp filename to avoid conflicts between users
+    const tempId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    let tempFilePath = null;
+
     try {
         // Extract video ID only, ignore playlist/radio parameters
         const cleanUrl = extractVideoId(url);
@@ -133,8 +137,15 @@ app.post('/download', async (req, res) => {
 
         const videoTitle = sanitizeFilename(info.title || 'video');
         const resolutionLabel = resolution || 'best';
-        const fileName = `${videoTitle}-${resolutionLabel}.mp4`;
-        const filePath = path.join(__dirname, 'downloads', fileName);
+        const finalFileName = `${videoTitle}-${resolutionLabel}.mp4`;
+        
+        // Use temp folder with unique ID to avoid conflicts
+        const tempDir = path.join(__dirname, 'temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        tempFilePath = path.join(tempDir, `${tempId}.mp4`);
 
         // Determine format based on resolution
         let formatString;
@@ -146,25 +157,53 @@ app.post('/download', async (req, res) => {
             formatString = 'bestvideo+bestaudio/best';
         }
 
-        // Download video
+        // Download video to temp location
         await ytDlp(cleanUrl, {
             format: formatString,
             mergeOutputFormat: 'mp4',
-            output: filePath,
+            output: tempFilePath,
         });
 
-        res.json({ 
-            success: true, 
-            downloadUrl: `/files/${encodeURIComponent(fileName)}`,
-            filename: fileName
+        console.log(`✅ Download complete: ${finalFileName}`);
+
+        // Send file directly to browser with proper headers
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(finalFileName)}"`);
+        
+        // Stream file to response
+        const fileStream = fs.createReadStream(tempFilePath);
+        
+        fileStream.on('error', (error) => {
+            console.error('Stream error:', error);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Failed to send file.' });
+            }
         });
+
+        fileStream.on('end', () => {
+            // Delete temp file after sending
+            fs.unlink(tempFilePath, (err) => {
+                if (err) console.error('Failed to delete temp file:', err);
+                else console.log(`🗑️ Cleaned up temp file: ${tempId}.mp4`);
+            });
+        });
+
+        fileStream.pipe(res);
+
     } catch (error) {
         console.error(error);
+        
+        // Clean up temp file if exists
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+            console.log(`🗑️ Cleaned up temp file after error: ${tempId}.mp4`);
+        }
+        
         res.status(500).json({ error: 'Failed to download video. Make sure URL is valid and try again.' });
     }
 });
 
-// Endpoint untuk serving file hasil download
-app.use('/files', express.static(path.join(__dirname, 'downloads')));
+// Remove the static file serving endpoint since we're not storing files anymore
+// app.use('/files', express.static(path.join(__dirname, 'downloads')));
 
 app.listen(3000, () => console.log('🚀 Server running at http://localhost:3000'));

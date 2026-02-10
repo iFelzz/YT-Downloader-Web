@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  yt-web:
+    build: .
+    container_name: yt-downloader-web
+    restart: unless-stopped
+    ports:
+      # Format: "Port_Luar : Port_Dalem_Aplikasi"
+      # Kalau server.js lu listen di port 3000, yang kanan harus 3000
+      - "3000:3000"
+    volumes:
+      # Mapping folder temp ke server untuk processing
+      # Files auto-deleted setelah di-download user
+      - ./temp:/app/temp
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

@@ -97,11 +97,12 @@ sudo yum install ffmpeg  # CentOS/RHEL
 4. **Download**
    - Click "⬇️ Download Video" button
    - Wait for processing (download + merge)
-   - Click the download link when ready
+   - File automatically downloads to your Downloads folder
 
-5. **Save File**
+5. **File Saved**
    - File will be named: `[Video-Title]-[Resolution].mp4`
-   - Saved to the `downloads/` folder
+   - Check your browser's Downloads folder
+   - Server automatically cleans up temporary files
 
 ## 📁 Project Structure
 
@@ -109,7 +110,7 @@ sudo yum install ffmpeg  # CentOS/RHEL
 YT-Downloader-Web/
 ├── public/
 │   └── index.html          # Frontend UI
-├── downloads/              # Downloaded videos (auto-created)
+├── temp/                   # Temporary processing files (auto-cleanup)
 ├── node_modules/           # Dependencies
 ├── server.js              # Express server & API endpoints
 ├── package.json           # Project configuration
