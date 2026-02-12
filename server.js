@@ -290,7 +290,7 @@ app.post('/api/download',
                 formatString = 'bestvideo+bestaudio/best';
             }
 
-            // Download options (Construct arguments manually for spawn)
+            // Start with base args
             const args = [
                 cleanUrl,
                 '--output', tempFilePath,
@@ -299,6 +299,15 @@ app.post('/api/download',
                 '--add-header', 'referer:youtube.com',
                 '--add-header', 'user-agent:googlebot'
             ];
+
+            // Use local ffmpeg-static for portability
+            const ffmpegPath = require('ffmpeg-static');
+            if (ffmpegPath) {
+                args.push('--ffmpeg-location', ffmpegPath);
+                // console.log(`Using local ffmpeg: ${ffmpegPath}`);
+            } else {
+                console.warn('ffmpeg-static not found, falling back to system PATH');
+            }
 
             if (formatString) {
                 args.push('--format', formatString);
