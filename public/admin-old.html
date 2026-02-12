@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Re-Watch Admin - Logs Viewer</title>
+    
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+
+        .auth-card, .logs-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .auth-card {
+            max-width: 500px;
+            margin: 0 auto 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"], input[type="date"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="date"]:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        button.danger:hover {
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        button.small {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .log-files-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .log-file-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .log-file-item:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .log-file-item h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .log-file-item p {
+            color: #666;
+            font-size: 14px;
+            margin: 4px 0;
+        }
+
+        .log-entries {
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .log-entry.error {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .log-entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .log-action {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .log-entry.error .log-action {
+            color: #dc3545;
+        }
+
+        .log-timestamp {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .log-details {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .log-details p {
+            margin: 4px 0;
+        }
+
+        .log-detail-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .error-message {
+            background: #fff5f5;
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #dc3545;
+            margin-top: 15px;
+        }
+
+
+        .success-message {
+            background: #f0f9ff;
+            color: #0066cc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+            margin-top: 15px;
+        }
+
+        /* Calendar Styles */
+        .calendar-container {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .calendar-container.collapsed .calendar-content {
+            display: none;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 0;
+        }
+
+        .calendar-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .calendar-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .calendar-toggle {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .calendar-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-nav button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            padding: 0;
+        }
+
+        .calendar-nav button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-bottom: 6px;
+            text-align: center;
+            font-weight: 600;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .calendar-weekday {
+            padding: 4px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+            min-height: 38px;
+        }
+
+        .calendar-day.empty {
+            background: transparent;
+            cursor: default;
+        }
+
+        .calendar-day.disabled {
+            background: #f5f5f5;
+            color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .calendar-day.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .calendar-day.active:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .calendar-day.selected {
+            border: 2px solid #667eea;
+            background: #e8ebff;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .calendar-day.today {
+            border: 2px solid #ffa500;
+        }
+
+        .calendar-day.today.active {
+            border: 2px solid #ffd700;
+        }
+
+        .log-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #ff6b6b;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .selected .log-badge {
+            background: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .calendar-day {
+                font-size: 11px;
+                min-height: 32px;
+            }
+
+            .log-badge {
+                width: 12px;
+                height: 12px;
+                font-size: 7px;
+            }
+
+            .calendar-weekdays {
+                font-size: 10px;
+            }
+
+            .calendar-header h3 {
+                font-size: 14px;
+            }
+        }
+
+        /* Download Dropdown Styles */
+        .download-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .download-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            min-width: 180px;
+            margin-top: 5px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .download-menu.show {
+            display: block;
+            animation: fadeIn 0.2s;
+        }
+
+        .download-menu button {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: white;
+            color: #333;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-menu button:hover {
+            background: #f5f5f5;
+        }
+
+        .download-menu button:active {
+            background: #e8e8e8;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Checkbox Filter Styles */
+        .filter-group {
+            margin-top: 15px;
+        }
+
+        .filter-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .filter-checkboxes label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .filter-checkboxes label:hover {
+            background: #f5f5f5;
+            border-color: #667eea;
+        }
+
+        .filter-checkboxes input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .filter-actions button {
+            font-size: 12px;
+            padding: 4px 8px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .filter-actions button:hover {
+            background: #e8e8e8;
+        }
+
+        /* Collapsible section headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-arrow {
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+
+        .section-arrow.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            display: contents;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Re-Watch Admin Panel</h1>
+
+        <!-- Authentication Card -->
+        <div class="auth-card" id="authCard">
+            <h2 style="margin-bottom: 20px;">Admin Authentication</h2>
+            <div class="form-group">
+                <label for="apiKey">API Key</label>
+                <input type="text" id="apiKey" placeholder="Enter your admin API key" onkeypress="if(event.key === 'Enter') authenticate()">
+            </div>
+            <button onclick="authenticate()">Access Logs</button>
+            <div id="authError" class="error-message hidden"></div>
+        </div>
+
+        <!-- Logs Viewer Card -->
+        <div class="logs-card hidden" id="logsCard">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Access Logs</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button id="refreshButton" onclick="manualRefresh()" title="Click to refresh now">🔄 Refresh (10s)</button>
+                    
+                    <!-- Download Dropdown -->
+                    <div class="download-dropdown">
+                        <button onclick="toggleDownloadMenu()" id="downloadBtn">📥 Download</button>
+                        <div class="download-menu" id="downloadMenu">
+                            <button disabled title="⚠️ Temporarily Disabled - Under Maintenance" style="cursor: not-allowed; opacity: 0.5;">📄 Download CSV</button>
+                            <button onclick="exportCurrentLog('json')">📋 Download JSON</button>
+                            <button onclick="exportCurrentLog('xlsx')">📊 Download Excel</button>
+                            <button onclick="exportCurrentLog('pdf')">📕 Download PDF</button>
+                            <hr style="margin: 4px 0; border: none; border-top: 1px solid #e0e0e0;">
+                            <button onclick="openDateRangeModal()">📅 Download Within Range...</button>
+                        </div>
+                    </div>
+                    
+                    <button class="danger" onclick="clearAllLogs()">🗑️ Clear All Logs</button>
+                    <button onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+
+            <!-- Stats -->
+            <div class="stats" id="statsContainer"></div>
+
+            <!-- Calendar View -->
+            <div class="calendar-container" id="calendarContainer">
+                <div class="calendar-header">
+                    <div class="calendar-header-left">
+                        <h3 id="calendarTitle">February 2026</h3>
+                        <button class="calendar-toggle" onclick="toggleCalendar()" id="calendarToggle">
+                            📅 Hide Calendar
+                        </button>
+                    </div>
+                    <div class="calendar-nav">
+                        <button onclick="navigateMonth(-1)" title="Previous Month">◀</button>
+                        <button onclick="navigateMonth(1)" title="Next Month">▶</button>
+                    </div>
+                </div>
+                <div class="calendar-content" id="calendarContent">
+                    <div class="calendar-weekdays">
+                        <div class="calendar-weekday">Sun</div>
+                        <div class="calendar-weekday">Mon</div>
+                        <div class="calendar-weekday">Tue</div>
+                        <div class="calendar-weekday">Wed</div>
+                        <div class="calendar-weekday">Thu</div>
+                        <div class="calendar-weekday">Fri</div>
+                        <div class="calendar-weekday">Sat</div>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="form-group">
+                    <label for="logFileSelect">Select Log File</label>
+                    <select id="logFileSelect" onchange="loadLogFile()">
+                        <option value="">-- Select Date --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="actionFilter">Filter by Action</label>
+                    <select id="actionFilter" onchange="filterLogs()">
+                        <option value="">All Actions</option>
+                        <optgroup label="Quick Filters">
+                            <option value="all_user_actions">📱 All User Actions</option>
+                            <option value="all_admin_actions">🔐 All Admin Actions</option>
+                        </optgroup>
+                        <optgroup label="User Actions">
+                            <option value="incoming_video_info_request">Incoming Video Info Request</option>
+                            <option value="fetch_video_info">Fetch Video Info (Success)</option>
+                            <option value="incoming_download_request">Incoming Download Request</option>
+                            <option value="download_video">Download Video (Success)</option>
+                        </optgroup>
+                        <optgroup label="Admin Actions">
+                            <option value="admin_auth_failed">🔐 Admin Login Failed</option>
+                            <option value="admin_auth_success">✅ Admin Login Success</option>
+                            <option value="admin_view_log_list">📋 Admin View Logs List</option>
+                            <option value="admin_view_log_detail">🔍 Admin View Log Detail</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sortOrder">Sort by Time</label>
+                    <select id="sortOrder" onchange="filterLogs()">
+                        <option value="desc">Newest First (Descending)</option>
+                        <option value="asc">Oldest First (Ascending)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="searchInput">Search <span style="font-weight: normal; font-size: 12px;">(IP, video title, URL, etc.)</span></label>
+                    <input type="text" id="searchInput" placeholder="Type to search..." oninput="filterLogs()">
+                </div>
+            </div>
+
+            <!-- Log Files List -->
+            <div class="log-files-list" id="logFilesList"></div>
+
+            <!-- Log Entries -->
+            <div class="log-entries" id="logEntries"></div>
+
+            <div id="logsError" class="error-message hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        let apiKey = '';
+        let allLogs = [];
+        let currentLogs = [];
+        let autoRefreshInterval = null;
+        let idleTimeout = null;
+        let lastRefreshTime = null;
+        let refreshCountdown = null;
+        const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+        const AUTO_REFRESH_INTERVAL_MS = 10000; // 10 seconds
+
+        // Calendar state
+        let currentCalendarMonth = new Date().getMonth();
+        let currentCalendarYear = new Date().getFullYear();
+        let availableLogDates = new Set();
+        let selectedDate = null;
+
+        // Month names for display
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+
+        // Calendar Functions
+        function renderCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            const calendarTitle = document.getElementById('calendarTitle');
+            
+            // Update title
+            calendarTitle.textContent = `${monthNames[currentCalendarMonth]} ${currentCalendarYear}`;
+            
+            // Get first day of month and number of days
+            const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+            const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+            
+            // Get today's date for comparison
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            
+            // Clear grid
+            calendarGrid.innerHTML = '';
+            
+            // Add empty cells for days before month starts
+            for (let i = 0; i < firstDay; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day empty';
+                calendarGrid.appendChild(emptyDay);
+            }
+            
+            // Add day cells
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day';
+                
+                // Check if this date has logs
+                const hasLogs = availableLogDates.has(dateStr);
+                
+                if (hasLogs) {
+                    dayCell.classList.add('active');
+                    dayCell.onclick = () => selectDateFromCalendar(dateStr);
+                } else {
+                    dayCell.classList.add('disabled');
+                }
+                
+                // Highlight today
+                if (dateStr === todayStr) {
+                    dayCell.classList.add('today');
+                }
+                
+                // Highlight selected date
+                if (dateStr === selectedDate) {
+                    dayCell.classList.add('selected');
+                }
+                
+                // Add day number
+                dayCell.textContent = day;
+                
+                calendarGrid.appendChild(dayCell);
+            }
+        }
+
+        function navigateMonth(direction) {
+            currentCalendarMonth += direction;
+            
+            if (currentCalendarMonth > 11) {
+                currentCalendarMonth = 0;
+                currentCalendarYear++;
+            } else if (currentCalendarMonth < 0) {
+                currentCalendarMonth = 11;
+                currentCalendarYear--;
+            }
+            
+            renderCalendar();
+        }
+
+        function selectDateFromCalendar(date) {
+            selectedDate = date;
+            renderCalendar();
+            
+            // Load the log file  
+            document.getElementById('logFileSelect').value = date;
+            loadLogFile();
+        }
+
+        function updateCalendarWithLogDates(files) {
+            // Extract dates from log files
+            availableLogDates.clear();
+            files.forEach(file => {
+                availableLogDates.add(file.date);
+            });
+            
+            // Render calendar with updated dates
+            renderCalendar();
+        }
+
+        function toggleCalendar() {
+            const container = document.getElementById('calendarContainer');
+            const toggleBtn = document.getElementById('calendarToggle');
+            
+            container.classList.toggle('collapsed');
+            
+            if (container.classList.contains('collapsed')) {
+                toggleBtn.textContent = '📅 Show Calendar';
+            } else {
+                toggleBtn.textContent = '📅 Hide Calendar';
+            }
+        }
+
+
+        // Check for stored session on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const storedApiKey = localStorage.getItem('adminApiKey');
+            const lastActivity = localStorage.getItem('lastActivity');
+            
+            if (storedApiKey && lastActivity) {
+                const timeSinceLastActivity = Date.now() - parseInt(lastActivity);
+                
+                // If less than idle timeout, restore session
+                if (timeSinceLastActivity < IDLE_TIMEOUT_MS) {
+                    apiKey = storedApiKey;
+                    document.getElementById('apiKey').value = apiKey;
+                    authenticate(true); // Auto-authenticate with stored key
+                } else {
+                    // Session expired, clear storage
+                    clearSession();
+                }
+            }
+        });
+
+        // Track user activity to reset idle timer
+        function resetIdleTimer() {
+            localStorage.setItem('lastActivity', Date.now().toString());
+            
+            // Clear existing timeout
+            if (idleTimeout) {
+                clearTimeout(idleTimeout);
+            }
+            
+            // Set new timeout
+            idleTimeout = setTimeout(() => {
+                alert('Session expired due to inactivity. Please log in again.');
+                logout();
+            }, IDLE_TIMEOUT_MS);
+        }
+
+        // Track activity events
+        ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+            document.addEventListener(event, resetIdleTimer, true);
+        });
+
+        function clearSession() {
+            localStorage.removeItem('adminApiKey');
+            localStorage.removeItem('lastActivity');
+            if (idleTimeout) {
+                clearTimeout(idleTimeout);
+            }
+        }
+
+        function authenticate(isAutoAuth = false) {
+            if (!isAutoAuth) {
+                apiKey = document.getElementById('apiKey').value.trim();
+            }
+            
+            const authError = document.getElementById('authError');
+            const loginButton = document.querySelector('button[onclick="authenticate()"]');
+
+            if (!apiKey) {
+                authError.textContent = 'Please enter an API key';
+                authError.classList.remove('hidden');
+                return;
+            }
+
+            // Disable button and show loading state
+            if (loginButton) {
+                loginButton.disabled = true;
+                loginButton.textContent = '⏳ Authenticating...';
+            }
+
+            // Try to fetch logs to validate API key
+            fetch('/admin/logs', {
+                headers: {
+                    'X-API-Key': apiKey
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else if (response.status === 401) {
+                    throw new Error('Invalid API key');
+                } else {
+                    throw new Error('Server error');
+                }
+            })
+            .then(data => {
+                // Authentication successful
+                // Hide error message
+                authError.textContent = '';
+                authError.classList.add('hidden');
+                
+                // Show success message
+                if (loginButton) {
+                    loginButton.textContent = '✅ Success! Loading panel...';
+                }
+                
+                // Store API key in localStorage
+                localStorage.setItem('adminApiKey', apiKey);
+                resetIdleTimer();
+                
+                // Wait 2 seconds before showing admin panel
+                setTimeout(() => {
+                    document.getElementById('authCard').classList.add('hidden');
+                    document.getElementById('logsCard').classList.remove('hidden');
+                    displayLogFiles(data.logs);
+                    
+                    // Start auto-refresh
+                    startAutoRefresh();
+                    
+                    // Reset button state for next logout
+                    if (loginButton) {
+                        loginButton.disabled = false;
+                        loginButton.textContent = 'Access Logs';
+                    }
+                }, 2000);
+            })
+            .catch(error => {
+                authError.textContent = error.message;
+                authError.classList.remove('hidden');
+                clearSession();
+                
+                // Reset button state on error
+                if (loginButton) {
+                    loginButton.disabled = false;
+                    loginButton.textContent = 'Access Logs';
+                }
+            });
+        }
+
+        function logout() {
+            apiKey = '';
+            document.getElementById('apiKey').value = '';
+            document.getElementById('authCard').classList.remove('hidden');
+            document.getElementById('logsCard').classList.add('hidden');
+            document.getElementById('logFilesList').innerHTML = '';
+            document.getElementById('logEntries').innerHTML = '';
+            
+            // Clear error message
+            const authError = document.getElementById('authError');
+            authError.textContent = '';
+            authError.classList.add('hidden');
+            
+            // Clear session and stop auto-refresh
+            clearSession();
+            stopAutoRefresh();
+        }
+
+        function startAutoRefresh() {
+            // Clear existing interval if any
+            stopAutoRefresh();
+            
+            // Immediate first refresh
+            updateRefreshStatus();
+            
+            // Set up periodic refresh
+            autoRefreshInterval = setInterval(() => {
+                refreshCurrentView();
+                updateRefreshStatus();
+            }, AUTO_REFRESH_INTERVAL_MS);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            if (refreshCountdown) {
+                clearInterval(refreshCountdown);
+                refreshCountdown = null;
+            }
+        }
+
+        function updateRefreshStatus() {
+            lastRefreshTime = Date.now();
+            const btnEl = document.getElementById('refreshButton');
+            
+            // Clear previous countdown
+            if (refreshCountdown) {
+                clearInterval(refreshCountdown);
+            }
+            
+            // Update countdown every second
+            refreshCountdown = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - lastRefreshTime) / 1000);
+                const remaining = Math.ceil(AUTO_REFRESH_INTERVAL_MS / 1000) - elapsed;
+                
+                if (remaining > 0) {
+                    btnEl.textContent = `🔄 Refresh (${remaining}s)`;
+                } else {
+                    btnEl.textContent = `🔄 Refreshing...`;
+                }
+            }, 1000);
+        }
+
+        function manualRefresh() {
+            const btnEl = document.getElementById('refreshButton');
+            const originalText = btnEl.textContent;
+            
+            // Show loading state
+            btnEl.textContent = '🔄 Refreshing...';
+            btnEl.disabled = true;
+            
+            refreshCurrentView();
+            
+            // Show success and re-enable
+            setTimeout(() => {
+                btnEl.textContent = '✅ Refreshed!';
+                setTimeout(() => {
+                    btnEl.disabled = false;
+                    updateRefreshStatus();
+                }, 500);
+            }, 300);
+        }
+
+        function refreshCurrentView() {
+            const selectedDate = document.getElementById('logFileSelect').value;
+            
+            // Refresh log files list with auto-refresh header
+            fetch('/admin/logs', {
+                headers: { 
+                    'X-API-Key': apiKey,
+                    'X-Auto-Refresh': 'true' // Don't log this as admin action
+                }
+            })
+            .then(r => r.json())
+            .then(d => {
+                displayLogFiles(d.logs, selectedDate); // Pass selected date to preserve
+                
+                // If a specific date is selected, refresh that too
+                if (selectedDate) {
+                    loadLogFile(true); // Pass true to indicate auto-refresh
+                }
+            })
+            .catch(err => console.error('Auto-refresh error:', err));
+        }
+
+        function displayLogFiles(files, preserveSelectedDate = null) {
+            const container = document.getElementById('logFilesList');
+            const selectEl = document.getElementById('logFileSelect');
+            const currentSelected = preserveSelectedDate || selectEl.value;
+            
+            if (files.length === 0) {
+                container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #666;">No log files found yet.</p>';
+                return;
+            }
+
+            container.innerHTML = files.map(file => `
+                <div class="log-file-item">
+                    <div onclick="loadSpecificLogFile('${file.date}')" style="cursor: pointer;">
+                        <h3>📅 ${file.date}</h3>
+                        <p><strong>Size:</strong> ${file.size}</p>
+                        <p><strong>Modified:</strong> ${new Date(file.modified).toLocaleString()}</p>
+                    </div>
+                    <button class="danger small" onclick="clearSpecificLog('${file.date}'); event.stopPropagation();" style="margin-top: 10px; width: 100%;">🗑️ Clear Log</button>
+                </div>
+            `).join('');
+
+            selectEl.innerHTML = '<option value="">-- Select Date --</option>' +
+                files.map(file => `<option value="${file.date}">${file.date}</option>`).join('');
+            
+            // Restore previous selection if it still exists
+            if (currentSelected && files.some(f => f.date === currentSelected)) {
+                selectEl.value = currentSelected;
+            }
+            
+            // Update calendar with available log dates
+            updateCalendarWithLogDates(files);
+        }
+
+        function loadSpecificLogFile(date) {
+            document.getElementById('logFileSelect').value = date;
+            loadLogFile();
+        }
+
+        function loadLogFile(isAutoRefresh = false) {
+            const date = document.getElementById('logFileSelect').value;
+            const logsError = document.getElementById('logsError');
+            
+            if (!date) {
+                document.getElementById('logEntries').innerHTML = '';
+                document.getElementById('statsContainer').innerHTML = '';
+                return;
+            }
+
+            const headers = {
+                'X-API-Key': apiKey
+            };
+            
+            // Add auto-refresh header if this is automatic refresh
+            if (isAutoRefresh) {
+                headers['X-Auto-Refresh'] = 'true';
+            }
+
+            fetch(`/admin/logs/${date}`, { headers })
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to load logs');
+                return response.json();
+            })
+            .then(data => {
+                allLogs = data.logs;
+                currentLogs = allLogs;
+                displayStats();
+                filterLogs();
+                logsError.classList.add('hidden');
+            })
+            .catch(error => {
+                logsError.textContent = error.message;
+                logsError.classList.remove('hidden');
+            });
+        }
+
+        function displayStats() {
+            const stats = {
+                total: allLogs.length,
+                fetches: allLogs.filter(l => l.action === 'fetch_video_info').length,
+                downloads: allLogs.filter(l => l.action === 'download_video').length,
+                errors: allLogs.filter(l => l.level === 'error').length
+            };
+
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${stats.total}</div>
+                    <div class="stat-label">Total Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.fetches}</div>
+                    <div class="stat-label">Video Fetches</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.downloads}</div>
+                    <div class="stat-label">Downloads</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.errors}</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+            `;
+        }
+
+        function filterLogs() {
+            const actionFilter = document.getElementById('actionFilter').value;
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            const sortOrder = document.getElementById('sortOrder').value;
+
+            // Define action groups
+            const userActions = [
+                'incoming_video_info_request',
+                'fetch_video_info',
+                'incoming_download_request',
+                'download_video'
+            ];
+            
+            const adminActions = [
+                'admin_auth_failed',
+                'admin_auth_success',
+                'admin_view_log_list',
+                'admin_view_log_detail'
+            ];
+
+            currentLogs = allLogs.filter(log => {
+                let matchesAction = false;
+                
+                // Handle grouped filters
+                if (actionFilter === 'all_user_actions') {
+                    matchesAction = userActions.includes(log.action);
+                } else if (actionFilter === 'all_admin_actions') {
+                    matchesAction = adminActions.includes(log.action);
+                } else if (!actionFilter) {
+                    matchesAction = true; // No filter, show all
+                } else {
+                    matchesAction = log.action === actionFilter; // Specific action
+                }
+                
+                const matchesSearch = !searchQuery || 
+                    JSON.stringify(log).toLowerCase().includes(searchQuery);
+                return matchesAction && matchesSearch;
+            });
+
+            // Sort by timestamp
+            currentLogs.sort((a, b) => {
+                const timeA = new Date(a.timestamp).getTime();
+                const timeB = new Date(b.timestamp).getTime();
+                
+                if (sortOrder === 'asc') {
+                    return timeA - timeB; // Oldest first
+                } else {
+                    return timeB - timeA; // Newest first
+                }
+            });
+
+            displayLogs();
+        }
+
+        function displayLogs() {
+            const container = document.getElementById('logEntries');
+            
+            if (currentLogs.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">No logs match your filters.</p>';
+                return;
+            }
+
+            container.innerHTML = currentLogs.map(log => {
+                const isError = log.level === 'error';
+                const action = log.action || 'unknown';
+                
+                return `
+                    <div class="log-entry ${isError ? 'error' : ''}">
+                        <div class="log-entry-header">
+                            <span class="log-action">${isError ? '❌' : '✅'} ${action.replace(/_/g, ' ').toUpperCase()}</span>
+                            <span class="log-timestamp">${log.timestamp}</span>
+                        </div>
+                        <div class="log-details">
+                            ${log.videoTitle ? `<p><span class="log-detail-label">Video:</span> ${log.videoTitle}</p>` : ''}
+                            ${log.url ? `<p><span class="log-detail-label">URL:</span> ${log.url}</p>` : ''}
+                            ${log.resolution ? `<p><span class="log-detail-label">Resolution:</span> ${log.resolution}</p>` : ''}
+                            ${log.fileSize ? `<p><span class="log-detail-label">File Size:</span> ${log.fileSize}</p>` : ''}
+                            ${log.ip ? `<p><span class="log-detail-label">IP:</span> ${log.ip}</p>` : ''}
+                            ${log.location ? `<p><span class="log-detail-label">Location:</span> ${log.location.city}, ${log.location.region}, ${log.location.country}</p>` : ''}
+                            ${log.processingTime ? `<p><span class="log-detail-label">Processing Time:</span> ${log.processingTime}ms</p>` : ''}
+                            ${log.error ? `<p><span class="log-detail-label">Error:</span> ${log.error}</p>` : ''}
+                            ${log.message ? `<p><span class="log-detail-label">Message:</span> ${log.message}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function clearSpecificLog(date) {
+            if (!confirm(`Are you sure you want to delete logs for ${date}?\n\nThis action cannot be undone!`)) {
+                return;
+            }
+
+            fetch(`/admin/logs/${date}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-API-Key': apiKey
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to delete log');
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                // Refresh log files list
+                fetch('/admin/logs', {
+                    headers: { 'X-API-Key': apiKey }
+                })
+                .then(r => r.json())
+                .then(d => displayLogFiles(d.logs));
+                
+                // Clear current view if we deleted the selected log
+                const selectedDate = document.getElementById('logFileSelect').value;
+                if (selectedDate === date) {
+                    document.getElementById('logEntries').innerHTML = '';
+                    document.getElementById('statsContainer').innerHTML = '';
+                    document.getElementById('logFileSelect').value = '';
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+        function clearAllLogs() {
+            if (!confirm('⚠️ WARNING ⚠️\n\nAre you sure you want to DELETE ALL LOGS?\n\nThis will permanently delete all log files and cannot be undone!\n\nClick OK to confirm.')) {
+                return;
+            }
+
+            // Double confirmation for safety
+            if (!confirm('FINAL CONFIRMATION\n\nThis is your last chance!\n\nAll logs will be permanently deleted.\n\nAre you absolutely sure?')) {
+                return;
+            }
+
+            fetch('/admin/logs/all', {
+                method: 'DELETE',
+                headers: {
+                    'X-API-Key': apiKey
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to delete logs');
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                // Refresh to show empty state
+                displayLogFiles([]);
+                document.getElementById('logEntries').innerHTML = '';
+                document.getElementById('statsContainer').innerHTML = '';
+                document.getElementById('logFileSelect').value = '';
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+        // === Export Functions ===
+
+        // Toggle download dropdown menu
+        function toggleDownloadMenu() {
+            const menu = document.getElementById('downloadMenu');
+            menu.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.download-dropdown');
+            if (dropdown && !dropdown.contains(event.target)) {
+                document.getElementById('downloadMenu').classList.remove('show');
+            }
+        });
+
+        // Export current log
+        function exportCurrentLog(format) {
+            const selectedDate = document.getElementById('logFileSelect').value;
+            
+            if (!selectedDate) {
+                alert('Please select a log file first!');
+                toggleDownloadMenu();
+                return;
+            }
+
+            const logs = currentLogs; // Use currently displayed logs
+            const filename = `logs-${selectedDate}`;
+
+            switch(format) {
+                case 'csv':
+                    exportToCSV(logs, filename);
+                    break;
+                case 'json':
+                    exportToJSON(logs, filename);
+                    break;
+                case 'xlsx':
+                    exportToExcel(logs, filename);
+                    break;
+                case 'pdf':
+                    exportToPDF(logs, filename);
+                    break;
+            }
+
+            toggleDownloadMenu();
+        }
+
+        // Helper: Format location object to string
+        function formatLocation(location) {
+            if (!location) return '';
+            if (typeof location === 'string') return location;
+            
+            // If it's an object, format it nicely
+            if (typeof location === 'object') {
+                const parts = [];
+                if (location.city) parts.push(location.city);
+                if (location.region) parts.push(location.region);
+                if (location.country) parts.push(location.country);
+                return parts.join(', ') || 'Unknown';
+            }
+            
+            return String(location);
+        }
+
+        // CSV Export - Simplified for maximum Excel compatibility
+        function exportToCSV(logs, filename) {
+            // Clean and escape field
+            function clean(field) {
+                if (field === null || field === undefined) return '';
+                let str = String(field)
+                    .replace(/[\r\n]+/g, ' ')
+                    .replace(/\t/g, ' ')
+                    .trim();
+                // Only quote if necessary (contains comma, quote, or starts with special chars)
+                if (str.includes(',') || str.includes('"') || str.match(/^[=+\-@]/)) {
+                    str = '"' + str.replace(/"/g, '""') + '"';
+                }
+                return str;
+            }
+            
+            const rows = [];
+            
+            // Excel separator hint (helps with locale issues)
+            rows.push('sep=,');
+            
+            // Headers
+            rows.push('Timestamp,Level,Action,Message,IP,Location,User Agent,Processing Time');
+            
+            // Data rows
+            logs.forEach(log => {
+                rows.push([
+                    clean(log.timestamp),
+                    clean(log.level || 'info'),
+                    clean(log.action),
+                    clean(log.message),
+                    clean(log.ip),
+                    clean(formatLocation(log.location)),
+                    clean(log.userAgent),
+                    clean(log.processingTime)
+                ].join(','));
+            });
+            
+            // Simple text file with UTF-8 BOM
+            const BOM = '\uFEFF';
+            const content = BOM + rows.join('\r\n');
+            
+            // Download
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${filename}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+
+        // JSON Export
+        function exportToJSON(logs, filename) {
+            const jsonContent = JSON.stringify(logs, null, 2);
+            downloadFile(jsonContent, `${filename}.json`, 'application/json');
+        }
+
+        // Excel Export
+        function exportToExcel(logs, filename) {
+            const data = logs.map(log => ({
+                'Timestamp': log.timestamp,
+                'Level': log.level || 'info',
+                'Action': log.action || '',
+                'Message': log.message || '',
+                'IP': log.ip || '',
+                'Location': formatLocation(log.location),
+                'User Agent': log.userAgent || '',
+                'Processing Time': log.processingTime || ''
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Logs");
+            XLSX.writeFile(wb, `${filename}.xlsx`);
+        }
+
+        // PDF Export
+        function exportToPDF(logs, filename) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(16);
+            doc.text('Access Logs', 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+
+            const tableData = logs.map(log => [
+                log.timestamp,
+                log.level || 'info',
+                log.action || '',
+                (log.message || '').substring(0, 30),
+                log.ip || '',
+                formatLocation(log.location)
+            ]);
+
+            doc.autoTable({
+                startY: 28,
+                head: [['Timestamp', 'Level', 'Action', 'Message', 'IP', 'Location']],
+                body: tableData,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [102, 126, 234] }
+            });
+
+            doc.save(`${filename}.pdf`);
+        }
+
+        // Helper: Download file
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Modal functions
+        function openDateRangeModal() {
+            document.getElementById('dateRangeModal').classList.add('show');
+            toggleDownloadMenu(); // Close dropdown
+            
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+            document.getElementById('startDate').value = weekAgo;
+            document.getElementById('endDate').value = today;
+        }
+
+        function closeDateRangeModal() {
+            document.getElementById('dateRangeModal').classList.remove('show');
+        }
+
+        // Checkbox helper functions
+        function selectAllActions() {
+            const checkboxes = document.querySelectorAll('#actionFilters input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+        }
+
+        function selectNoActions() {
+            const checkboxes = document.querySelectorAll('#actionFilters input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+
+        function toggleUserActions(checkbox) {
+            const userCheckboxes = document.querySelectorAll('.user-action');
+            userCheckboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        function toggleAdminActions(checkbox) {
+            const adminCheckboxes = document.querySelectorAll('.admin-action');
+            adminCheckboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        // Toggle collapsible sections
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId + 'Content');
+            const arrow = document.getElementById(sectionId + 'Arrow');
+            
+            content.classList.toggle('collapsed');
+            arrow.classList.toggle('collapsed');
+        }
+
+        // Sync quick filter checkboxes when individual items change
+        function syncQuickFilter(type) {
+            const checkboxes = document.querySelectorAll(type === 'user' ? '.user-action' : '.admin-action');
+            const allCheckbox = document.querySelector(`input[value="all_${type}"]`);
+            
+            // Check if all checkboxes are checked
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            allCheckbox.checked = allChecked;
+        }
+
+        function getSelectedActions() {
+            const checkboxes = document.querySelectorAll('#actionFilters input[type="checkbox"]:checked');
+            return Array.from(checkboxes)
+                .map(cb => cb.value)
+                .filter(v => v !== 'all_user' && v !== 'all_admin'); // Exclude quick filter values
+        }
+
+
+        // Export date range
+        async function exportDateRange() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const format = document.getElementById('rangeFormat').value;
+            const selectedActions = getSelectedActions();
+
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates!');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('Start date must be before end date!');
+                return;
+            }
+
+            if (selectedActions.length === 0) {
+                alert('Please select at least one action to filter!');
+                return;
+            }
+
+            try {
+                // Fetch logs for date range
+                let logs = await fetchLogsInRange(startDate, endDate);
+                
+                // Filter by selected actions
+                logs = logs.filter(log => selectedActions.includes(log.action));
+                
+                if (logs.length === 0) {
+                    alert('No logs found in the selected date range with the selected filters.');
+                    return;
+                }
+
+                const filename = `logs-${startDate}-to-${endDate}`;
+
+                switch(format) {
+                    case 'csv':
+                        exportToCSV(logs, filename);
+                        break;
+                    case 'json':
+                        exportToJSON(logs, filename);
+                        break;
+                    case 'xlsx':
+                        exportToExcel(logs, filename);
+                        break;
+                    case 'pdf':
+                        exportToPDF(logs, filename);
+                        break;
+                }
+
+                closeDateRangeModal();
+            } catch (error) {
+                alert('Error fetching logs: ' + error.message);
+            }
+        }
+
+        // Fetch logs in date range
+        async function fetchLogsInRange(startDate, endDate) {
+            const allLogs = [];
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            // Get all log files
+            const filesResponse = await fetch('/admin/logs', {
+                headers: { 'X-API-Key': apiKey }
+            });
+            const filesData = await filesResponse.json();
+
+            // Filter files within range
+            const filesInRange = filesData.logs.filter(file => {
+                const fileDate = new Date(file.date);
+                return fileDate >= start && fileDate <= end;
+            });
+
+            // Fetch each log file
+            for (const file of filesInRange) {
+                const logResponse = await fetch(`/admin/logs/${file.date}`, {
+                    headers: { 'X-API-Key': apiKey }
+                });
+                const logData = await logResponse.json();
+                allLogs.push(...logData.logs);
+            }
+
+            return allLogs;
+        }
+    </script>
+
+    <!-- Date Range Modal -->
+    <div class="modal-overlay" id="dateRangeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Download Logs - Date Range</h3>
+                <button class="modal-close" onclick="closeDateRangeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                <div class="form-group">
+                    <label for="endDate">End Date</label>
+                    <input type="date" id="endDate" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                <div class="form-group">
+                    <label for="rangeFormat">Export Format</label>
+                    <select id="rangeFormat" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                        <option value="csv">📄 CSV</option>
+                        <option value="json">📋 JSON</option>
+                        <option value="xlsx">📊 Excel</option>
+                        <option value="pdf">📕 PDF</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Filter by Action</label>
+                    <div class="filter-actions">
+                        <button onclick="selectAllActions()" type="button" style="background: #667eea; color: white; border-color: #667eea;">Select All</button>
+                        <button onclick="selectNoActions()" type="button" style="background: #f56565; color: white; border-color: #f56565;">Unselect All</button>
+                    </div>
+                    <div class="filter-checkboxes" id="actionFilters">
+                        <!-- Quick Filters -->
+                        <label style="grid-column: 1 / -1; font-weight: 600; font-size: 12px; color: #667eea; padding: 4px 0; border: none;" class="section-header" onclick="toggleSection('quickFilters')">
+                            <span class="section-arrow" id="quickFiltersArrow">▼</span> QUICK FILTERS
+                        </label>
+                        <div id="quickFiltersContent" class="section-content">
+                            <label>
+                                <input type="checkbox" value="all_user" data-group="user" onchange="toggleUserActions(this)"> All User Actions
+                            </label>
+                            <label>
+                                <input type="checkbox" value="all_admin" data-group="admin" onchange="toggleAdminActions(this)"> All Admin Actions
+                            </label>
+                        </div>
+                        
+                        <!-- User Actions -->
+                        <label style="grid-column: 1 / -1; font-weight: 600; font-size: 12px; color: #555; padding: 4px 0; margin-top: 8px; border: none;" class="section-header" onclick="toggleSection('userActions')">
+                            <span class="section-arrow" id="userActionsArrow">▼</span> USER ACTIONS
+                        </label>
+                        <div id="userActionsContent" class="section-content">
+                            <label>
+                                <input type="checkbox" class="user-action" value="video_info" checked onchange="syncQuickFilter('user')"> Video Info Request
+                            </label>
+                            <label>
+                                <input type="checkbox" class="user-action" value="video_info_success" checked onchange="syncQuickFilter('user')"> Video Info Success
+                            </label>
+                            <label>
+                                <input type="checkbox" class="user-action" value="download" checked onchange="syncQuickFilter('user')"> Download Request
+                            </label>
+                            <label>
+                                <input type="checkbox" class="user-action" value="download_success" checked onchange="syncQuickFilter('user')"> Download Success
+                            </label>
+                        </div>
+                        
+                        <!-- Admin Actions -->
+                        <label style="grid-column: 1 / -1; font-weight: 600; font-size: 12px; color: #555; padding: 4px 0; margin-top: 8px; border: none;" class="section-header" onclick="toggleSection('adminActions')">
+                            <span class="section-arrow" id="adminActionsArrow">▼</span> ADMIN ACTIONS
+                        </label>
+                        <div id="adminActionsContent" class="section-content">
+                            <label>
+                                <input type="checkbox" class="admin-action" value="admin_auth_failed" checked onchange="syncQuickFilter('admin')"> Login Failed
+                            </label>
+                            <label>
+                                <input type="checkbox" class="admin-action" value="admin_auth_success" checked onchange="syncQuickFilter('admin')"> Login Success
+                            </label>
+                            <label>
+                                <input type="checkbox" class="admin-action" value="admin_view_log_list" checked onchange="syncQuickFilter('admin')"> View Logs List
+                            </label>
+                            <label>
+                                <input type="checkbox" class="admin-action" value="admin_view_log_detail" checked onchange="syncQuickFilter('admin')"> View Log Detail
+                            </label>
+                            <label>
+                                <input type="checkbox" class="admin-action" value="admin_clear_logs" checked onchange="syncQuickFilter('admin')"> Clear Logs
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeDateRangeModal()" style="background: #999;">Cancel</button>
+                <button onclick="exportDateRange()">📥 Download</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
