@@ -64,9 +64,14 @@ if (localStorage.getItem('theme') === 'dark') {
 }
 
 // Tab switching
+// Tab switching
 function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tab) {
+            btn.classList.add('active');
+        }
+    });
     
     document.getElementById('single-tab').style.display = tab === 'single' ? 'block' : 'none';
     document.getElementById('batch-tab').style.display = tab === 'batch' ? 'block' : 'none';
