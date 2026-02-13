@@ -573,13 +573,9 @@ async function fetchVideoInfo() {
 async function processDownload(url, resolution, format, prefix = '', statusFn = showStatus) {
     isDownloadCancelled = false;
     const progressContainer = document.getElementById('progressContainer');
-    const cancelBtn = document.getElementById('cancelBtn');
-    
     // Ensure UI is ready
     progressContainer.classList.add('show');
-    cancelBtn.style.display = 'block'; 
-    cancelBtn.disabled = false;
-    cancelBtn.textContent = '🛑 Cancel Download';
+    // cancelBtn removal - handled by updateDownloadButtonState in startDownload
     
     document.getElementById('progressFill').style.width = '0%';
     document.getElementById('progressText').textContent = `${prefix}Starting download...`;
@@ -671,28 +667,51 @@ async function processDownload(url, resolution, format, prefix = '', statusFn = 
         console.error(error);
         return false;
     } finally {
-        // Hide cancel button if:
-        // 1. Download finished normally (!isDownloadCancelled)
-        // 2. Download was cancelled AND we aren't starting a new one (!disabled)
-        if (!isDownloadCancelled || !document.getElementById('downloadBtn').disabled) {
-             document.getElementById('cancelBtn').style.display = 'none'; 
-        }
+        // No visual cleanup needed here, startDownload finally block handles it
+    }
+}
+
+let isSingleDownloadRunning = false;
+
+// Unified Button Handler
+function handleDownloadAction(btn) {
+    if (isSingleDownloadRunning) {
+        cancelDownload();
+    } else {
+        startDownload();
+    }
+}
+
+// Helper to toggle button state
+function updateDownloadButtonState(state) {
+    const btn = document.getElementById('downloadBtn');
+    if (!btn) return;
+
+    if (state === 'downloading') {
+        isSingleDownloadRunning = true;
+        btn.textContent = '🛑 Cancel Download';
+        btn.className = 'btn-danger'; // Switch to red
+        btn.disabled = false; // Ensure it's clickable
+    } else {
+        isSingleDownloadRunning = false;
+        btn.textContent = '⬇️ Download Video';
+        btn.className = 'btn-success'; // Revert to green
+        btn.disabled = false;
     }
 }
 
 async function cancelDownload() {
-    // if (!confirm('Stop current download?')) return; // Confirmation removed by user request
-    
     isDownloadCancelled = true;
-    const cancelBtn = document.getElementById('cancelBtn');
-    cancelBtn.disabled = true;
-    cancelBtn.textContent = 'Cancelling...';
+    const btn = document.getElementById('downloadBtn');
+    
+    // Visual feedback immediately
+    btn.textContent = 'Cancelling...';
+    btn.disabled = true;
     
     // FORCE REMOVE ANY EXISTING STATUS TOAST
     const existing = document.getElementById('toast-global-status');
     if (existing) existing.remove();
     
-    // Show Cancelled Toast (Use error type for visibility, 5s duration)
     showToast('Download cancelled.', 'error', 5000, 'toast-global-status');
 
     try {
@@ -705,14 +724,10 @@ async function cancelDownload() {
         document.getElementById('progressContainer').classList.remove('show');
     } catch (error) {
         console.error('Cancel failed:', error);
-        showStatus('Failed to cancel. Server might be busy.', 'error');
+        showToast('Failed to cancel. Server might be busy.', 'error'); // Use showToast, not showStatus
     } finally {
-        // Keep button disabled but don't hide it instantly to avoid UI jumping
-        // The processDownload finally block will handle hiding it
-        cancelBtn.textContent = 'Cancelled';
-        
-        // Reset UI
-        document.getElementById('downloadBtn').disabled = false;
+        // Reset UI via helper
+        updateDownloadButtonState('idle');
         document.getElementById('spinner').classList.remove('active');
     }
 }
@@ -722,39 +737,33 @@ async function startDownload() {
     const urlInput = document.getElementById('videoUrl');
     const resInput = document.getElementById('resolution');
     const spinner = document.getElementById('spinner');
-    const downloadBtn = document.getElementById('downloadBtn');
     
     // Robust element fetching
     const url = urlInput ? urlInput.value.trim() : '';
     const resolution = resInput ? resInput.value : '';
 
-    if (!url) {
-        showSingleStatus('Please enter a YouTube URL first!', 'error');
-        return;
-    }
+    if (!url) return showToast('Please enter a YouTube URL', 'error');
+    if (!resolution && selectedFormat !== 'audio') return showToast('Please select a resolution', 'error');
 
-    if (spinner) spinner.classList.add('active');
-    if (downloadBtn) downloadBtn.disabled = true;
+    // UI Updates START
+    updateDownloadButtonState('downloading');
+    spinner.classList.add('active');
+    document.getElementById('progressContainer').classList.remove('show');
+    
+    isDownloadCancelled = false; // Reset flag
 
     try {
-        await processDownload(url, resolution, selectedFormat, '', showSingleStatus);
-    } catch (e) {
-        console.error('Download error:', e);
-        showSingleStatus('Error starting download: ' + e.message, 'error');
+        await processDownload(url, resolution, selectedFormat, '', (msg, type) => showSingleStatus(msg, type));
+    } catch (error) {
+        console.error(error);
+        showSingleStatus('Download failed', 'error');
     } finally {
-        const s = document.getElementById('spinner');
-        if (s) s.classList.remove('active');
-        const btn = document.getElementById('downloadBtn');
-        if (btn) btn.disabled = false;
-        
-        // Hide progress if it was stuck
-        setTimeout(() => {
-            const p = document.getElementById('progressContainer');
-             // Only hide if not currently processing (simple check)
-             if (p && !p.classList.contains('processing')) {
-                 // p.classList.remove('show'); // Let processDownload handle this
-             }
-        }, 3000);
+        // Only revert to IDLE if we aren't stuck in "Cancelling" limbo
+        // But cancelDownload handles its own reset.
+        if (!isDownloadCancelled) {
+             updateDownloadButtonState('idle');
+             spinner.classList.remove('active');
+        }
     }
 }
 

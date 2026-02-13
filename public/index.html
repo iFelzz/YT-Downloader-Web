@@ -94,10 +94,17 @@
             </div>
 
             <div class="button-group">
-                <button class="btn-success" id="downloadBtn" onclick="startDownload()" disabled>⬇️ Download Video</button>
+                <button class="btn-success" id="downloadBtn" onclick="handleDownloadAction(this)" disabled>⬇️ Download Video</button>
             </div>
             
             <div id="spinner" class="spinner"></div>
+
+            <div id="progressContainer" class="progress-container">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="progressText" class="progress-text">0%</div>
+            </div>
         </div>
 
         <!-- Batch Download Tab -->
@@ -170,17 +177,6 @@
                 <div id="playlistItems" class="files-list"></div>
             </div>
         </div>
-
-        <!-- Progress Bar -->
-        <div class="progress-container" id="progressContainer">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-text" id="progressText">Preparing download...</div>
-            <button id="cancelBtn" class="btn-danger" style="display: none; margin-top: 10px; width: 100%;" onclick="cancelDownload()">🛑 Cancel Download</button>
-        </div>
-
-        <div class="spinner" id="spinner"></div>
     </div>
     
     <!-- Toasts Container (Outside for full width) -->
