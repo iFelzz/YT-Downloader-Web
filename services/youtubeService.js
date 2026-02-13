@@ -63,7 +63,7 @@ class YouTubeService {
         });
     }
 
-    async downloadVideo(url, options, onProgress) {
+    async downloadVideo(url, options, onProgress, onStart) {
         const { tempFilePath, format, resolution } = options;
         
         let formatString;
@@ -118,6 +118,8 @@ class YouTubeService {
         const subprocess = spawn(exePath, args, {
             env: { ...process.env, PYTHONUNBUFFERED: '1' }
         });
+
+        if (onStart) onStart(subprocess);
 
         let stdoutBuffer = '';
             

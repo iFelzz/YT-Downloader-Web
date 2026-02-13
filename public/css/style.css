@@ -351,42 +351,77 @@ button:disabled {
     100% { transform: rotate(360deg); }
 }
 
-#status, #playlistStatus, #singleStatus {
-    margin-top: 20px;
-    padding: 15px;
-    border-radius: 10px;
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Let clicks pass through container */
+}
+
+.toast {
+    min-width: 300px;
+    max-width: 400px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    transform: translateX(100%);
+    animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    pointer-events: auto; /* Re-enable clicks on toasts */
+    border-left: 5px solid var(--primary);
+    overflow: hidden;
+}
+
+.toast.hiding {
+    animation: slideOutRight 0.3s ease-in forwards;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(120%); opacity: 0; }
+}
+
+.toast.info { border-left-color: var(--primary); }
+.toast.success { border-left-color: var(--success); }
+.toast.error { border-left-color: var(--danger); }
+
+.toast-content {
+    flex: 1;
+    font-weight: 500;
     font-size: 0.95em;
-    text-align: center;
-    display: none;
+    color: var(--text);
 }
 
-#status.show, #playlistStatus.show, #singleStatus.show {
-    display: block;
-    animation: fadeIn 0.3s ease;
+.toast-close {
+    background: transparent;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: opacity 0.2s;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-#status.info, #playlistStatus.info, #singleStatus.info {
-    background: rgba(102, 126, 234, 0.1);
-    border: 2px solid var(--primary);
-    color: var(--primary);
-}
-
-#status.success, #playlistStatus.success, #singleStatus.success {
-    background: rgba(72, 187, 120, 0.1);
-    border: 2px solid var(--success);
-    color: var(--success);
-}
-
-#status.error, #playlistStatus.error, #singleStatus.error {
-    background: rgba(245, 101, 101, 0.1);
-    border: 2px solid var(--danger);
-    color: var(--danger);
-}
+.toast-close:hover { opacity: 1; }
 
 .video-info {
     display: none;

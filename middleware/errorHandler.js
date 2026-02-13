@@ -20,6 +20,14 @@ const errorHandler = (err, req, res, next) => {
     } else if (err.message && err.message.includes('Invalid URL')) {
         statusCode = 400;
         userMessage = 'Invalid URL. Please enter a valid YouTube URL.';
+    } else if (err.message && err.message.includes('Invalid URL')) {
+        statusCode = 400;
+        userMessage = 'Invalid URL. Please enter a valid YouTube URL.';
+    } else if (err.message && (err.message.includes('killed') || err.message.includes('abort'))) {
+        // Request cancelled/process killed
+        statusCode = 499; // Client Closed Request
+        userMessage = 'Request cancelled';
+        return res.status(499).end(); // Don't log, just end
     }
 
     // Log the error

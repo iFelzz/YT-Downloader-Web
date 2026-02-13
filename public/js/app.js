@@ -2,14 +2,24 @@ let currentVideoTitle = '';
 let selectedFormat = 'mp4';
 let batchResults = [];
 let availableResolutions = []; // Store fetched resolutions
-let clientId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+// Consistent Client ID for this session
+const clientId = Date.now().toString(36) + Math.random().toString(36).substring(2);
 let loopStatus = ''; // formatted as [1/N]
+let isDownloadCancelled = false;
+
+
 
 // Setup SSE
 const evtSource = new EventSource(`/api/progress?clientId=${clientId}`);
 evtSource.onmessage = function(event) {
     const data = JSON.parse(event.data);
     
+    // STRICT BLOCK: granular ignore if download is cancelled
+    if (isDownloadCancelled && data.type !== 'complete') {
+        console.log('Ignored SSE event due to cancellation:', data.type);
+        return;
+    }
+
     if (data.type === 'progress') {
         const progressContainer = document.getElementById('progressContainer');
         const progressFill = document.getElementById('progressFill');
@@ -25,6 +35,7 @@ evtSource.onmessage = function(event) {
             document.getElementById('progressContainer').classList.remove('show');
         }, 5000);
     } else if (data.type === 'error') {
+        if (isDownloadCancelled) return; // Ignore server errors if cancelled
         showStatus('Download failed.', 'error');
         document.getElementById('progressContainer').classList.remove('show');
     }
@@ -380,7 +391,7 @@ async function fetchBatchInfo() {
             resultsDiv.innerHTML = html;
             document.getElementById('batchDownloadBtn').disabled = batchResults.length === 0;
             
-            showStatus(`✅ Loaded ${batchResults.length} videos successfully!`, 'success');
+            showStatus(`Loaded ${batchResults.length} videos successfully!`, 'success');
         } else {
             showStatus(`Error: ${data.error}`, 'error');
         }
@@ -410,27 +421,64 @@ function updateDownloadButton() {
 // ... (other code)
 
 // Helper for Single Status
+// Helper for Single Status
+// Toast Notification System
+function showToast(message, type = 'info', duration = 5000, replaceId = null) {
+    if (!message) return;
+
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    // Check for existing toast with same ID and remove it
+    if (replaceId) {
+        const existingToast = document.getElementById(replaceId);
+        if (existingToast) {
+            existingToast.remove();
+        }
+    }
+
+    // Icon mapping
+    const icons = {
+        success: '✅',
+        error: '❌',
+        info: 'ℹ️',
+        warning: '⚠️'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    if (replaceId) toast.id = replaceId;
+    
+    toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || ''}</div>
+        <div class="toast-content">${message}</div>
+        <button class="toast-close" onclick="this.parentElement.remove()">✖</button>
+    `;
+
+    // Append to container (Newest at bottom)
+    container.appendChild(toast);
+
+    // Auto dismiss
+    if (duration) {
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('hiding');
+                toast.addEventListener('animationend', () => toast.remove());
+            }
+        }, duration);
+    }
+}
+
+// Legacy wrappers for backward compatibility (redirect to Toast with ID to mimic single-slot behavior)
+function showStatus(message, type, persistent = false) {
+    // Use fixed ID to replace previous global status (e.g. "Downloading..." -> "Complete")
+    showToast(message, type, persistent ? 0 : 5000, 'toast-global-status');
+}
+
 function showSingleStatus(message, type, persistent = false) {
-    const statusEl = document.getElementById('singleStatus');
-    if (!statusEl) return;
-    
-    // Clear existing timeout
-    if (singleStatusTimeout) {
-        clearTimeout(singleStatusTimeout);
-        singleStatusTimeout = null;
-    }
-    
-    statusEl.textContent = message;
-    statusEl.className = type;
-    statusEl.classList.add('show');
-    statusEl.style.display = 'block';
-    
-    if (type !== 'error' && !persistent) {
-        singleStatusTimeout = setTimeout(() => {
-            statusEl.classList.remove('show');
-            statusEl.style.display = 'none';
-        }, 5000);
-    }
+    // Use fixed ID to replace previous single status (e.g. "Fetching..." -> "Loaded")
+    // UNIFIED: Use 'toast-global-status' so it shares the slot with cancel/batch statuses
+    showToast(message, type, persistent ? 0 : 5000, 'toast-global-status');
 }
 
 // ...
@@ -507,7 +555,7 @@ async function fetchVideoInfo() {
                 document.getElementById('downloadBtn').disabled = false;
             }
             
-            showSingleStatus('✅ Video info loaded successfully!', 'success');
+            showSingleStatus('Video info loaded successfully!', 'success');
         } else {
             showSingleStatus(`Error: ${data.error}`, 'error');
         }
@@ -523,13 +571,20 @@ async function fetchVideoInfo() {
 
 // Shared download function
 async function processDownload(url, resolution, format, prefix = '', statusFn = showStatus) {
+    isDownloadCancelled = false;
     const progressContainer = document.getElementById('progressContainer');
+    const cancelBtn = document.getElementById('cancelBtn');
     
+    // Ensure UI is ready
     progressContainer.classList.add('show');
+    cancelBtn.style.display = 'block'; 
+    cancelBtn.disabled = false;
+    cancelBtn.textContent = '🛑 Cancel Download';
+    
     document.getElementById('progressFill').style.width = '0%';
     document.getElementById('progressText').textContent = `${prefix}Starting download...`;
-    statusFn(`${prefix}Downloading... Please wait ⏳`, 'info', true);
-
+    statusFn(`${prefix}Downloading... Please wait`, 'info', true);
+    
     try {
         const response = await fetch('/api/download', {
             method: 'POST',
@@ -556,6 +611,12 @@ async function processDownload(url, resolution, format, prefix = '', statusFn = 
             const chunks = [];
 
             while (true) {
+                if (isDownloadCancelled) {
+                    await reader.cancel();
+                    console.log('Download stream cancelled by user');
+                    return false;
+                }
+
                 const { done, value } = await reader.read();
                 if (done) break;
                 
@@ -580,8 +641,8 @@ async function processDownload(url, resolution, format, prefix = '', statusFn = 
             window.URL.revokeObjectURL(downloadUrl);
 
             document.getElementById('progressFill').style.width = '100%';
-            document.getElementById('progressText').textContent = `${prefix}Download complete! ✅`;
-            statusFn(`${prefix}✅ Download complete!`, 'success');
+            document.getElementById('progressText').textContent = `${prefix}Download complete!`;
+            statusFn(`${prefix}Download complete!`, 'success');
             
             // Save to history
             const title = (prefix ? 'Batch Item' : currentVideoTitle) || filename;
@@ -594,39 +655,104 @@ async function processDownload(url, resolution, format, prefix = '', statusFn = 
             
             return true;
         } else {
+            // If cancelled, suppress server errors
+            if (isDownloadCancelled) return false;
+
             const data = await response.json();
             statusFn(`Error: ${data.error}`, 'error');
             return false;
         }
     } catch (error) {
+        if (isDownloadCancelled) {
+             console.log('Download error suppressed due to cancellation');
+             return false;
+        }
         statusFn('Failed to download video.', 'error');
         console.error(error);
         return false;
+    } finally {
+        // Only hide if we are NOT starting a new download immediately (rare case)
+        // Better: check if we are still "processing" the same flow
+        if (!document.getElementById('downloadBtn').disabled) {
+             document.getElementById('cancelBtn').style.display = 'none'; 
+        }
+    }
+}
+
+async function cancelDownload() {
+    // if (!confirm('Stop current download?')) return; // Confirmation removed by user request
+    
+    isDownloadCancelled = true;
+    const cancelBtn = document.getElementById('cancelBtn');
+    cancelBtn.disabled = true;
+    cancelBtn.textContent = 'Cancelling...';
+    
+    // FORCE REMOVE ANY EXISTING STATUS TOAST
+    const existing = document.getElementById('toast-global-status');
+    if (existing) existing.remove();
+    
+    // Show Cancelled Toast (Use error type for visibility, 5s duration)
+    showToast('Download cancelled.', 'error', 5000, 'toast-global-status');
+
+    try {
+        await fetch('/api/cancel-download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientId })
+        });
+        
+        document.getElementById('progressContainer').classList.remove('show');
+    } catch (error) {
+        console.error('Cancel failed:', error);
+        showStatus('Failed to cancel. Server might be busy.', 'error');
+    } finally {
+        // Keep button disabled but don't hide it instantly to avoid UI jumping
+        // The processDownload finally block will handle hiding it
+        cancelBtn.textContent = 'Cancelled';
+        
+        // Reset UI
+        document.getElementById('downloadBtn').disabled = false;
+        document.getElementById('spinner').classList.remove('active');
     }
 }
 
 // Start single download
 async function startDownload() {
-    const url = document.getElementById('videoUrl').value.trim();
-    const resolution = document.getElementById('resolution').value;
+    const urlInput = document.getElementById('videoUrl');
+    const resInput = document.getElementById('resolution');
     const spinner = document.getElementById('spinner');
+    const downloadBtn = document.getElementById('downloadBtn');
     
+    // Robust element fetching
+    const url = urlInput ? urlInput.value.trim() : '';
+    const resolution = resInput ? resInput.value : '';
+
     if (!url) {
         showSingleStatus('Please enter a YouTube URL first!', 'error');
         return;
     }
 
-    spinner.classList.add('active');
-    document.getElementById('downloadBtn').disabled = true;
+    if (spinner) spinner.classList.add('active');
+    if (downloadBtn) downloadBtn.disabled = true;
 
     try {
         await processDownload(url, resolution, selectedFormat, '', showSingleStatus);
+    } catch (e) {
+        console.error('Download error:', e);
+        showSingleStatus('Error starting download: ' + e.message, 'error');
     } finally {
-        loopStatus = '';
-        spinner.classList.remove('active');
-        document.getElementById('downloadBtn').disabled = false;
+        const s = document.getElementById('spinner');
+        if (s) s.classList.remove('active');
+        const btn = document.getElementById('downloadBtn');
+        if (btn) btn.disabled = false;
+        
+        // Hide progress if it was stuck
         setTimeout(() => {
-            document.getElementById('progressContainer').classList.remove('show');
+            const p = document.getElementById('progressContainer');
+             // Only hide if not currently processing (simple check)
+             if (p && !p.classList.contains('processing')) {
+                 // p.classList.remove('show'); // Let processDownload handle this
+             }
         }, 3000);
     }
 }
