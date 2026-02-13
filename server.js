@@ -51,9 +51,36 @@ app.use(errorHandler);
 
 const config = require('./config');
 
+const fs = require('fs');
+const path = require('path');
+
+// Cleanup Temp Directory on Startup
+function cleanupTempDir() {
+    const tempDir = config.DIR_TEMP;
+    if (!fs.existsSync(tempDir)) return;
+
+    console.log(`🧹 Cleaning up temp directory: ${tempDir}`);
+    fs.readdir(tempDir, (err, files) => {
+        if (err) return console.error('❌ Error reading temp dir:', err);
+
+        files.forEach(file => {
+            if (file === '.gitkeep') return; // Keep .gitkeep
+            
+            const filePath = path.join(tempDir, file);
+            fs.unlink(filePath, err => {
+                if (err) console.error(`❌ Error deleting ${file}:`, err);
+                else console.log(`deleted ${file}`);
+            });
+        });
+    });
+}
+
 const PORT = config.PORT;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📂 Temp Dir: ${config.DIR_TEMP}`);
     console.log(`📝 Logs Dir: ${config.DIR_LOGS}`);
+    
+    // Run cleanup
+    cleanupTempDir();
 });

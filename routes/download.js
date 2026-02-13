@@ -101,6 +101,22 @@ router.post('/download',
 
             logger.info('Setup temp path complete', { tempFilePath });
 
+            // Helper for cleanup
+            const cleanupTempFiles = () => {
+                try {
+                    if (fs.existsSync(tempDir)) {
+                        const files = fs.readdirSync(tempDir);
+                        const relatedFiles = files.filter(f => f.startsWith(tempId));
+                        relatedFiles.forEach(f => {
+                            try { fs.unlinkSync(path.join(tempDir, f)); } catch (e) { /* ignore */ }
+                        });
+                        if (relatedFiles.length > 0) {
+                            logger.info(`Cleaned up ${relatedFiles.length} temp files`);
+                        }
+                    }
+                } catch (e) { logger.error('Cleanup error:', e); }
+            };
+
             // Download
             logger.info('Starting downloadVideo...');
             await youtubeService.downloadVideo(cleanUrl, {
@@ -135,8 +151,7 @@ router.post('/download',
 
             res.download(tempFilePath, finalFileName, (err) => {
                 if (err) logger.error('Send file error:', err);
-                // Cleanup
-                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                cleanupTempFiles(); // Robust cleanup
             });
 
             logger.info('Video downloaded successfully', {
@@ -157,7 +172,25 @@ router.post('/download',
                 activeDownloads.delete(clientId);
                 sendProgress(clientId, { type: 'error', text: 'Download failed.' });
             }
-            if (tempFilePath && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+            
+            // Clean up on error logic (redundant definition avoided by using the helper if defined, 
+            // but scope might be an issue if defined inside try. 
+            // Since I defined cleanupTempFiles insde the try block, I can use it here if I am careful.
+            // Wait, if error happened BEFORE cleanupTempFiles was defined?
+            // Safe to just inline simple cleanup here for robustness if scope is tricky,
+            // but let's try to use the helper if we can ensure it's defined.
+            // Actually, just inline the simple cleanup here for safety against reference errors.
+            try {
+                if (tempFilePath && fs.existsSync(path.dirname(tempFilePath))) {
+                     const tDir = path.dirname(tempFilePath);
+                     const tId = path.basename(tempFilePath).split('.')[0];
+                     const files = fs.readdirSync(tDir);
+                     files.filter(f => f.startsWith(tId)).forEach(f => {
+                         try { fs.unlinkSync(path.join(tDir, f)); } catch (_) {}
+                     });
+                }
+            } catch (e) { /* ignore */ }
+
             next(error);
         }
     }
