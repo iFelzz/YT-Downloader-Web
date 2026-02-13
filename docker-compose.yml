@@ -1,18 +1,24 @@
 version: '3.8'
 
 services:
-  re-watch:
+  app:
     build: .
-    container_name: re-watch
+    container_name: yt-downloader
     restart: unless-stopped
     ports:
-      # Format: "Port_Luar : Port_Dalem_Aplikasi"
-      # Kalau server.js lu listen di port 3000, yang kanan harus 3000
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     volumes:
-      # Mapping folder temp ke server untuk processing
-      # Files auto-deleted setelah di-download user
+      - ./logs:/app/logs
       - ./temp:/app/temp
+      - ./cookies.txt:/app/cookies.txt
     environment:
-      - NODE_ENV=production
       - PORT=3000
+      - NODE_ENV=production
+      - DIR_LOGS=/app/logs
+      - DIR_TEMP=/app/temp
+      - FILE_COOKIES=/app/cookies.txt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

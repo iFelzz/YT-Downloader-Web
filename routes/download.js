@@ -8,6 +8,7 @@ const { downloadRateLimiter } = require('../middleware/rate-limit');
 const logger = require('../logger');
 const pLimit = require('p-limit');
 const checkDiskSpace = require('check-disk-space').default || require('check-disk-space');
+const config = require('../config');
 
 // SSE Clients
 let clients = [];
@@ -56,8 +57,8 @@ router.post('/download',
 
         try {
             logger.info('[DEBUG] Checking disk space...');
-            // Check disk space (Threshold: 500MB)
-            const tempDir = path.join(__dirname, '..', 'temp');
+            
+            const tempDir = config.DIR_TEMP;
             if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
             try {

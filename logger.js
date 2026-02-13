@@ -10,8 +10,10 @@ const logFormat = winston.format.combine(
     winston.format.json()
 );
 
+const config = require('./config');
+
 // Define log directory
-const logDir = path.join(__dirname, 'logs');
+const logDir = config.DIR_LOGS;
 
 // Ensure log directory exists
 if (!fs.existsSync(logDir)) {

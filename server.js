@@ -49,7 +49,11 @@ app.use((req, res) => {
 // Centralized Error Handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
+const config = require('./config');
+
+const PORT = config.PORT;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📂 Temp Dir: ${config.DIR_TEMP}`);
+    console.log(`📝 Logs Dir: ${config.DIR_LOGS}`);
 });
